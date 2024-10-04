@@ -266,9 +266,8 @@ export default function Home() {
       setIsLoadingSwap(false)
       console.error('Error in swap:', e)
       toast({
-        title: 'Pending',
-        description: "Your swap is being processed, but we can't display the tx hash on OP Sepolia",
-        status: 'info',
+        title: 'error',
+        description: "Sorry, we weren't able to execute this swap. Please try again!",
         position: 'bottom',
         variant: 'subtle',
         duration: 9000,
