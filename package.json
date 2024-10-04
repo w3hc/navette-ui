@@ -1,6 +1,6 @@
 {
-  "name": "genji",
-  "description": "A Next.js Web3 app template",
+  "name": "navette-ui",
+  "description": "Bridge USDC from Sepolia to OP Sepolia",
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",

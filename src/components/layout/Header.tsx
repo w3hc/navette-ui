@@ -39,10 +39,10 @@ export function Header(props: Props) {
         <MenuButton as={IconButton} aria-label="Options" icon={<HamburgerIcon />} size={'sm'} mr={4} />
         <MenuList>
           <LinkComponent href="/">
-            <MenuItem fontSize="md">Home</MenuItem>
+            <MenuItem fontSize="md">Swap</MenuItem>
           </LinkComponent>
-          <LinkComponent href="/new">
-            <MenuItem fontSize="md">New</MenuItem>
+          <LinkComponent href="/explorer">
+            <MenuItem fontSize="md">Explorer</MenuItem>
           </LinkComponent>
         </MenuList>
       </Menu>
@@ -53,7 +53,7 @@ export function Header(props: Props) {
         <Flex alignItems="center">
           <ThemeSwitcher />
           <Box mt={2} ml={4}>
-            <Link href="https://github.com/w3hc/genji" isExternal>
+            <Link href="https://github.com/w3hc/navette" isExternal>
               <Icon as={FaGithub} boxSize={5} _hover={{ color: 'blue.500' }} />
             </Link>
           </Box>
