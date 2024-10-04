@@ -1,5 +1,15 @@
 import * as React from 'react'
-import { Text, Button, useToast, Box } from '@chakra-ui/react'
+import {
+  Text,
+  Button,
+  useToast,
+  Box,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper,
+} from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
 import { BrowserProvider, Contract, Eip1193Provider, parseEther } from 'ethers'
 import { useWeb3ModalProvider, useWeb3ModalAccount, useWalletInfo } from '@web3modal/ethers/react'
@@ -11,6 +21,9 @@ import { SITE_NAME, SITE_DESCRIPTION } from '../utils/config'
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [isLoadingSwap, setIsLoadingSwap] = useState<boolean>(false)
+  const [swapAmount, setSwapAmount] = useState<string>('8')
+
   const [txLink, setTxLink] = useState<string>()
   const [txHash, setTxHash] = useState<string>()
   const [balance, setBalance] = useState<string>('0')
@@ -23,15 +36,6 @@ export default function Home() {
   const provider = walletProvider
   const toast = useToast()
   const { walletInfo } = useWalletInfo()
-
-  useEffect(() => {
-    if (isConnected) {
-      setTxHash(undefined)
-      getNetwork()
-      updateLoginType()
-      getBal()
-    }
-  }, [isConnected, address, chainId])
 
   const getBal = async () => {
     if (isConnected && provider) {
@@ -175,6 +179,103 @@ export default function Home() {
       })
     }
   }
+  const swap = async () => {
+    setTxHash(undefined)
+    try {
+      if (!isConnected) {
+        toast({
+          title: 'Not connected yet',
+          description: 'Please connect your wallet, my friend.',
+          status: 'error',
+          position: 'bottom',
+          variant: 'subtle',
+          duration: 9000,
+          isClosable: true,
+        })
+        return
+      }
+      if (provider) {
+        setIsLoadingSwap(true)
+        setTxHash('')
+        setTxLink('')
+        const ethersProvider = new BrowserProvider(provider as Eip1193Provider)
+        const signer = await ethersProvider.getSigner()
+
+        const erc20 = new Contract(ERC20_CONTRACT_ADDRESS, ERC20_CONTRACT_ABI, signer)
+
+        ///// Send ETH if needed /////
+        const bal = await getBal()
+        console.log('bal:', bal)
+        if (bal < 0.025) {
+          const faucetTxHash = await faucetTx()
+          console.log('faucet tx:', faucetTxHash)
+          const bal = await getBal()
+          console.log('bal:', bal)
+        }
+        ///// Call /////
+        const call = await erc20.transfer('0xd6B159d56749BeE815dF460FB373B2A1EC1517A8', parseEther(swapAmount))
+
+        let receipt: ethers.ContractTransactionReceipt | null = null
+        try {
+          receipt = await call.wait()
+
+          if (receipt === null) {
+            throw new Error('Transaction receipt is null')
+          }
+
+          // Call the swap API route
+          const swapResponse = await fetch('/api/swap', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ txHash: receipt.hash }),
+          })
+
+          if (!swapResponse.ok) {
+            throw new Error('Failed to execute swap')
+          }
+
+          const swapData = await swapResponse.json()
+          console.log('Swap response:', swapData)
+
+          if (swapData.swapData && swapData.swapData.sendTx) {
+            setTxHash(swapData.swapData.sendTx)
+            setTxLink('https://sepolia-optimism.etherscan.io/tx/' + swapData.swapData.sendTx)
+            toast({
+              title: 'Successful swap',
+              description: `Well done! 🎉 Your tokens have been swapped. Amount: ${swapData.swapData.amount} tokens`,
+              status: 'success',
+              position: 'bottom',
+              variant: 'subtle',
+              duration: 20000,
+              isClosable: true,
+            })
+          } else {
+            throw new Error('Swap response is missing required data')
+          }
+        } catch (error) {
+          console.error('Error executing swap:', error)
+          throw error
+        }
+
+        setIsLoadingSwap(false)
+        await getBal()
+      }
+    } catch (e) {
+      setIsLoadingSwap(false)
+      console.error('Error in swap:', e)
+      toast({
+        title: 'Pending',
+        description: "Your swap is being processed, but we can't display the tx hash on OP Sepolia",
+        status: 'info',
+        position: 'bottom',
+        variant: 'subtle',
+        duration: 9000,
+        isClosable: true,
+      })
+    }
+  }
 
   return (
     <>
@@ -183,7 +284,6 @@ export default function Home() {
         {!isConnected ? (
           <>
             <Text>You can login with your email, Google, Farcaster, or with one of the 400+ wallets suported by this app.</Text>
-
             <br />
           </>
         ) : (
@@ -210,6 +310,10 @@ export default function Home() {
             </Text>
           </Box>
         )}
+        <Text>
+          If you don&apos;t have BASIC tokens on your wallet yet, you can click on the <strong>Mint</strong> button.
+        </Text>
+        <br />
         <Button
           colorScheme="blue"
           variant="outline"
@@ -220,11 +324,37 @@ export default function Home() {
           spinnerPlacement="end">
           Mint
         </Button>
+        <br />
+        <Box mt={4} mb={4}>
+          <Text mb={2}>You can go ahead and click on Swap to send BASIC tokens from Sepolia to OP Sepolia.</Text>
+          <NumberInput value={swapAmount} onChange={(valueString) => setSwapAmount(valueString)} min={1} max={10000} step={1}>
+            <NumberInputField />
+            <NumberInputStepper>
+              <NumberIncrementStepper />
+              <NumberDecrementStepper />
+            </NumberInputStepper>
+          </NumberInput>
+        </Box>
+        <Button
+          colorScheme="green"
+          variant="outline"
+          type="submit"
+          onClick={swap}
+          isLoading={isLoadingSwap}
+          loadingText="Swapping..."
+          spinnerPlacement="end">
+          Swap
+        </Button>
         {txHash && isConnected && (
-          <Text py={4} fontSize="14px" color="#45a2f8">
-            <LinkComponent href={txLink ? txLink : ''}>{txHash}</LinkComponent>
-          </Text>
-        )}{' '}
+          <>
+            <Text py={4} fontSize="14px" color="#45a2f8">
+              <LinkComponent href={txLink ? txLink : ''}>{txHash}</LinkComponent>
+            </Text>
+            <Text fontSize="14px">
+              You can also check your swap on the <LinkComponent href={'/explorer'}>Navette Explorer</LinkComponent>.
+            </Text>
+          </>
+        )}
       </main>
     </>
   )
