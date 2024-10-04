@@ -37,6 +37,15 @@ export default function Home() {
   const toast = useToast()
   const { walletInfo } = useWalletInfo()
 
+  useEffect(() => {
+    if (isConnected) {
+      setTxHash(undefined)
+      getNetwork()
+      updateLoginType()
+      getBal()
+    }
+  }, [isConnected, address, chainId])
+
   const getBal = async () => {
     if (isConnected && provider) {
       const ethersProvider = new BrowserProvider(provider as any)
@@ -266,7 +275,7 @@ export default function Home() {
       setIsLoadingSwap(false)
       console.error('Error in swap:', e)
       toast({
-        title: 'error',
+        title: 'warning',
         description: "Sorry, we weren't able to execute this swap. Please try again!",
         position: 'bottom',
         variant: 'subtle',
