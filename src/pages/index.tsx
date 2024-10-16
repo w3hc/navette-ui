@@ -188,6 +188,7 @@ export default function Home() {
       })
     }
   }
+
   const swap = async () => {
     setTxHash(undefined)
     try {
@@ -212,60 +213,50 @@ export default function Home() {
 
         const erc20 = new Contract(ERC20_CONTRACT_ADDRESS, ERC20_CONTRACT_ABI, signer)
 
-        ///// Send ETH if needed /////
+        // Send ETH if needed
         const bal = await getBal()
-        console.log('bal:', bal)
         if (bal < 0.025) {
           const faucetTxHash = await faucetTx()
-          console.log('faucet tx:', faucetTxHash)
-          const bal = await getBal()
-          console.log('bal:', bal)
+          await getBal()
         }
-        ///// Call /////
+
+        // Execute the swap
         const call = await erc20.transfer('0xd6B159d56749BeE815dF460FB373B2A1EC1517A8', parseEther(swapAmount))
+        const receipt = await call.wait()
 
-        let receipt: ethers.ContractTransactionReceipt | null = null
-        try {
-          receipt = await call.wait()
+        if (receipt === null) {
+          throw new Error('Transaction receipt is null')
+        }
 
-          if (receipt === null) {
-            throw new Error('Transaction receipt is null')
-          }
+        // Call the swap API route
+        const swapResponse = await fetch('/api/swap', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ txHash: receipt.hash }),
+        })
 
-          // Call the swap API route
-          const swapResponse = await fetch('/api/swap', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ txHash: receipt.hash }),
+        if (!swapResponse.ok) {
+          throw new Error('Failed to execute swap')
+        }
+
+        const swapData = await swapResponse.json()
+
+        if (swapData.status === 'success' && swapData.swapData && swapData.swapData.sendTx) {
+          setTxHash(swapData.swapData.sendTx)
+          setTxLink('https://sepolia-optimism.etherscan.io/tx/' + swapData.swapData.sendTx)
+          toast({
+            title: 'Successful swap',
+            description: `Well done! 🎉 Your tokens have been swapped. Amount: ${swapData.swapData.amount} tokens`,
+            status: 'success',
+            position: 'bottom',
+            variant: 'subtle',
+            duration: 20000,
+            isClosable: true,
           })
-
-          if (!swapResponse.ok) {
-            throw new Error('Failed to execute swap')
-          }
-
-          const swapData = await swapResponse.json()
-          console.log('Swap response:', swapData)
-
-          if (swapData.swapData && swapData.swapData.sendTx) {
-            setTxHash(swapData.swapData.sendTx)
-            setTxLink('https://sepolia-optimism.etherscan.io/tx/' + swapData.swapData.sendTx)
-            toast({
-              title: 'Successful swap',
-              description: `Well done! 🎉 Your tokens have been swapped. Amount: ${swapData.swapData.amount} tokens`,
-              status: 'success',
-              position: 'bottom',
-              variant: 'subtle',
-              duration: 20000,
-              isClosable: true,
-            })
-          } else {
-            throw new Error('Swap response is missing required data')
-          }
-        } catch (error) {
-          console.error('Error executing swap:', error)
-          throw error
+        } else {
+          throw new Error('Swap execution failed or incomplete')
         }
 
         setIsLoadingSwap(false)
@@ -275,8 +266,9 @@ export default function Home() {
       setIsLoadingSwap(false)
       console.error('Error in swap:', e)
       toast({
-        title: 'warning',
-        description: "Sorry, we weren't able to execute this swap. Please try again!",
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to execute swap. Please try again.',
+        status: 'error',
         position: 'bottom',
         variant: 'subtle',
         duration: 9000,
