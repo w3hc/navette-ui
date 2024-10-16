@@ -31,9 +31,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const response = await fetch('https://navette.jcloud.ik-server.com/swaps', {
+      // const response = await fetch('http://localhost:3000/swaps', {
       method: 'POST',
       headers: {
-        accept: '*/*',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ hash: txHash }),
@@ -49,10 +49,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
-    const data: SwapResponse = await response.json()
+    const data = await response.json()
 
-    if (!data.swapData || !data.swapData.sendTx) {
-      return res.status(500).json({ message: 'Invalid response from swap service' })
+    if (data.status !== 'success' || !data.swapData || !data.swapData.sendTx) {
+      return res.status(500).json({ message: 'Swap execution failed or incomplete' })
     }
 
     res.status(200).json(data)

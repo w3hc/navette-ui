@@ -20,6 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const response = await fetch('https://navette.jcloud.ik-server.com/swaps', {
+      // const response = await fetch('http://localhost:3000/swaps', {
       method: 'GET',
       headers: {
         accept: '*/*',
