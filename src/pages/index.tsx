@@ -359,7 +359,8 @@ export default function Home() {
         <br />
         <Box mt={4} mb={4}>
           <Text mb={2}>You can go ahead and click on Swap to send BASIC tokens from Sepolia to OP Sepolia.</Text>
-          <Text mb={2}>Available balance: {availableBalance !== null ? availableBalance : 'Loading...'} BASIC</Text>
+          {/* <Text mb={2}>Available balance: {availableBalance !== null ? availableBalance : 'Loading...'} BASIC</Text> */}
+          <br />
           <NumberInput value={swapAmount} onChange={handleSwapAmountChange} min={1} max={10000} step={1} isInvalid={isAmountExceedingBalance()}>
             <NumberInputField
               borderColor={isAmountExceedingBalance() ? 'red.500' : undefined}
@@ -373,7 +374,8 @@ export default function Home() {
           </NumberInput>
           {isAmountExceedingBalance() && (
             <Text color="red.500" fontSize="sm" mt={1}>
-              Amount exceeds available balance
+              The requested amount is not available: the maximum is <strong>{availableBalance !== null ? availableBalance : '...'} BASIC</strong>{' '}
+              right now.
             </Text>
           )}
         </Box>
