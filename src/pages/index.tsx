@@ -9,6 +9,7 @@ import {
   NumberInputStepper,
   NumberIncrementStepper,
   NumberDecrementStepper,
+  InputGroup,
 } from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
 import { BrowserProvider, Contract, Eip1193Provider, parseEther } from 'ethers'
@@ -23,6 +24,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [isLoadingSwap, setIsLoadingSwap] = useState<boolean>(false)
   const [swapAmount, setSwapAmount] = useState<string>('8')
+  const [availableBalance, setAvailableBalance] = useState<number | null>(null)
 
   const [txLink, setTxLink] = useState<string>()
   const [txHash, setTxHash] = useState<string>()
@@ -43,6 +45,7 @@ export default function Home() {
       getNetwork()
       updateLoginType()
       getBal()
+      getAvailableBalance()
     }
   }, [isConnected, address, chainId])
 
@@ -277,6 +280,35 @@ export default function Home() {
     }
   }
 
+  const getAvailableBalance = async () => {
+    try {
+      const response = await fetch('/api/get-available-amount?network=Sepolia&ticker=BASIC')
+      if (!response.ok) {
+        throw new Error('Failed to fetch available balance')
+      }
+      const data = await response.json()
+      setAvailableBalance(data.currentBalance)
+    } catch (error) {
+      console.error('Error fetching available balance:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch available balance',
+        status: 'error',
+        duration: 9000,
+        isClosable: true,
+      })
+    }
+  }
+
+  const handleSwapAmountChange = (valueString: string) => {
+    setSwapAmount(valueString)
+  }
+
+  const isAmountExceedingBalance = () => {
+    if (availableBalance === null) return false
+    const amount = parseFloat(swapAmount)
+    return amount > availableBalance
+  }
   return (
     <>
       <Head title={SITE_NAME} description={SITE_DESCRIPTION} />
@@ -327,13 +359,23 @@ export default function Home() {
         <br />
         <Box mt={4} mb={4}>
           <Text mb={2}>You can go ahead and click on Swap to send BASIC tokens from Sepolia to OP Sepolia.</Text>
-          <NumberInput value={swapAmount} onChange={(valueString) => setSwapAmount(valueString)} min={1} max={10000} step={1}>
-            <NumberInputField />
+          <Text mb={2}>Available balance: {availableBalance !== null ? availableBalance : 'Loading...'} BASIC</Text>
+          <NumberInput value={swapAmount} onChange={handleSwapAmountChange} min={1} max={10000} step={1} isInvalid={isAmountExceedingBalance()}>
+            <NumberInputField
+              borderColor={isAmountExceedingBalance() ? 'red.500' : undefined}
+              _hover={{ borderColor: isAmountExceedingBalance() ? 'red.600' : undefined }}
+              _focus={{ borderColor: isAmountExceedingBalance() ? 'red.600' : undefined }}
+            />
             <NumberInputStepper>
               <NumberIncrementStepper />
               <NumberDecrementStepper />
             </NumberInputStepper>
           </NumberInput>
+          {isAmountExceedingBalance() && (
+            <Text color="red.500" fontSize="sm" mt={1}>
+              Amount exceeds available balance
+            </Text>
+          )}
         </Box>
         <Button
           colorScheme="green"
@@ -342,7 +384,8 @@ export default function Home() {
           onClick={swap}
           isLoading={isLoadingSwap}
           loadingText="Swapping..."
-          spinnerPlacement="end">
+          spinnerPlacement="end"
+          isDisabled={isAmountExceedingBalance()}>
           Swap
         </Button>
         {txHash && isConnected && (
@@ -354,7 +397,7 @@ export default function Home() {
               You can also check your swap on the <LinkComponent href={'/explorer'}>Navette Explorer</LinkComponent>.
             </Text>
           </>
-        )}
+        )}{' '}
       </main>
     </>
   )
